@@ -60,7 +60,9 @@ export class Game
 
     fullscreen ()
     {
-        this.canvas.requestFullscreen({navigationUI: 'hide'}).then(console.log).catch(console.log);
+        // @ts-ignore
+        const requestMethod = this.canvas.requestFullscreen || this.canvas.webkitRequestFullscreen || this.canvas.mozRequestFullscreen;
+        requestMethod().then(console.log).catch(console.log);
     }
 
     createGameScene ()
