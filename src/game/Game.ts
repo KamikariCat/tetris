@@ -41,8 +41,6 @@ export class Game
 
         this.ctx = this.canvas.getContext('2d');
 
-        const isMobile = window.innerWidth < 500;
-
         this.width = (this.margin * 2) + (this.xElements * this.partSize) + (this.hGap * (this.xElements-1));
         this.height = (this.margin * 2) + (this.yElements * this.partSize) + (this.vGap * (this.yElements-1));
 
@@ -71,7 +69,13 @@ export class Game
 
     public controlKeys ()
     {
+        this.canvas.addEventListener('mouseup', () => {
+            if (this.stopped) this.start();
+            else this.stop();
+        })
+
         document.addEventListener('keyup', ev => {
+            if (this.stopped) return;
             if (this.dynamicElement)
             {
                 if (ev.key === 'ArrowLeft') this.dynamicElement.moveLeft()
@@ -85,17 +89,21 @@ export class Game
         let y = 0;
 
         document.addEventListener('touchstart', ev => {
+            if (this.stopped) return;
             x = Math.round(ev.changedTouches[0].clientX);
             y = Math.round(ev.changedTouches[0].clientY);
         })
 
         document.addEventListener('touchend', ev => {
+            if (this.stopped) return;
             const endX = ev.changedTouches[0].clientX
             const endY = ev.changedTouches[0].clientY
 
             if (x < endX && endX - x > 20) return  this.dynamicElement.moveRight();
             if (x > endX && x - endX > 20) return  this.dynamicElement.moveLeft();
+
             if (y < endY && endY - y > 20) return  this.dynamicElement.update();
+            if (y > endY && y - endY > 30) return this.stopped ? this.start() : this.stop();
 
             this.dynamicElement.rotate()
         })
@@ -120,9 +128,9 @@ export class Game
 
     public start ()
     {
+        this.fullscreen();
         this.stop();
         this.stopped = false;
-        document.getElementById('start').setAttribute('disabled', 'true')
         this.spawnElement();
         this.update();
         this.timer = setInterval(() => {
@@ -134,6 +142,8 @@ export class Game
     public stop()
     {
         clearInterval(this.timer);
+        this.staticStore = [];
+        this.dynamicElement = null;
         this.timer = null;
         this.stopped = true;
     }

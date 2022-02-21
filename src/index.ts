@@ -8,7 +8,7 @@ const canvas = document.getElementById('game');
 
 if (canvas instanceof HTMLCanvasElement)
 {
-    const game = new Game({
+    new Game({
         canvas,
         elementSize: 50,
         gameMargin: 1,
@@ -17,11 +17,4 @@ if (canvas instanceof HTMLCanvasElement)
         xElements: 10,
         yElements: 16,
     });
-
-    const startButton = document.getElementById('start');
-    startButton.addEventListener('click', () => {
-        game.fullscreen();
-        game.start();
-    })
-
 }
