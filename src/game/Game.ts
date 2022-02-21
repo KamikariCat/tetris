@@ -48,6 +48,14 @@ export class Game
         this.createGameScene();
 
         this.controlKeys();
+
+        this.canvas.style.display = 'none';
+
+        document.getElementById('start').addEventListener('click', () =>
+        {
+            this.canvas.style.display = 'block';
+            this.start();
+        })
     }
 
     fullscreen ()
@@ -69,11 +77,6 @@ export class Game
 
     public controlKeys ()
     {
-        this.canvas.addEventListener('mouseup', () => {
-            if (this.stopped) this.start();
-            else this.stop();
-        })
-
         document.addEventListener('keyup', ev => {
             if (this.stopped) return;
             if (this.dynamicElement)
@@ -89,21 +92,24 @@ export class Game
         let y = 0;
 
         document.addEventListener('touchstart', ev => {
-            if (this.stopped) return;
             x = Math.round(ev.changedTouches[0].clientX);
             y = Math.round(ev.changedTouches[0].clientY);
         })
 
         document.addEventListener('touchend', ev => {
-            if (this.stopped) return;
             const endX = ev.changedTouches[0].clientX
             const endY = ev.changedTouches[0].clientY
+
+            if (y > endY && y - endY > 200) return this.stopped ? this.start() : this.stop();
+
+            console.log({yo: y > endY && y - endY > 200});
+
+            if (this.stopped) return;
 
             if (x < endX && endX - x > 50) return  this.dynamicElement.moveRight();
             if (x > endX && x - endX > 50) return  this.dynamicElement.moveLeft();
 
             if (y < endY && endY - y > 50) return  this.dynamicElement.update();
-            //if (y > endY && y - endY > 100) return this.stopped ? this.start() : this.stop();
 
             this.dynamicElement.rotate()
         })
