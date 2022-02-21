@@ -99,11 +99,11 @@ export class Game
             const endX = ev.changedTouches[0].clientX
             const endY = ev.changedTouches[0].clientY
 
-            if (x < endX && endX - x > 20) return  this.dynamicElement.moveRight();
-            if (x > endX && x - endX > 20) return  this.dynamicElement.moveLeft();
+            if (x < endX && endX - x > 50) return  this.dynamicElement.moveRight();
+            if (x > endX && x - endX > 50) return  this.dynamicElement.moveLeft();
 
-            if (y < endY && endY - y > 20) return  this.dynamicElement.update();
-            if (y > endY && y - endY > 30) return this.stopped ? this.start() : this.stop();
+            if (y < endY && endY - y > 50) return  this.dynamicElement.update();
+            if (y > endY && y - endY > 100) return this.stopped ? this.start() : this.stop();
 
             this.dynamicElement.rotate()
         })
