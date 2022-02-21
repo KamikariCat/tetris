@@ -60,9 +60,7 @@ export class Game
 
     fullscreen ()
     {
-        // @ts-ignore
-        const requestMethod = this.canvas.requestFullscreen || this.canvas.webkitRequestFullscreen || this.canvas.mozRequestFullscreen;
-        requestMethod().then(console.log).catch(console.log);
+        this.canvas.requestFullscreen().then(console.log).catch(console.log);
     }
 
     createGameScene ()
