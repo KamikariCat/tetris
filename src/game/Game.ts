@@ -103,7 +103,7 @@ export class Game
             if (x > endX && x - endX > 50) return  this.dynamicElement.moveLeft();
 
             if (y < endY && endY - y > 50) return  this.dynamicElement.update();
-            if (y > endY && y - endY > 100) return this.stopped ? this.start() : this.stop();
+            //if (y > endY && y - endY > 100) return this.stopped ? this.start() : this.stop();
 
             this.dynamicElement.rotate()
         })
