@@ -4,6 +4,8 @@ html, body
     height: 100%;
 }
 
+
+
 body
 {
     display: flex;
@@ -21,6 +23,6 @@ body
     {
         position: absolute;
         z-index: 10;
-        top: 50vw;
-        left: 50vh;
+        top: 50%;
+        left: 50%;
     }
