@@ -21,6 +21,6 @@ body
     {
         position: absolute;
         z-index: 10;
-        top: 100vw;
-        left: 100vh;
+        top: 50vw;
+        left: 50vh;
     }
