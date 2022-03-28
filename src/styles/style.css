@@ -6,15 +6,6 @@ html, body
 }
 
 
-
-body
-{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-
     #game 
     {
         width: 100%;
