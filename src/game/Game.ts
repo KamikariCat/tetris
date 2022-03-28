@@ -44,7 +44,7 @@ export class Game
         this.width = (this.margin * 2) + (this.xElements * this.partSize) + (this.hGap * (this.xElements-1));
         this.height = (this.margin * 2) + (this.yElements * this.partSize) + (this.vGap * (this.yElements-1));
 
-        this.setCanvasSize();
+        // this.setCanvasSize();
         this.createGameScene();
 
         this.controlKeys();
@@ -134,6 +134,7 @@ export class Game
 
     public start ()
     {
+        this.setCanvasSize()
         this.fullscreen();
         this.stop();
         this.stopped = false;
