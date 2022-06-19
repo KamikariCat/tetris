@@ -13,21 +13,20 @@ export const config: webpack.Configuration = {
                 test: /\.html$/i,
                 loader: "html-loader",
             },
+            // {
+            //     test: /\.css$/i,
+            //     use: ["style-loader", "css-loader"],
+            // },
             {
                 test: /\.ts?$/,
                 use: 'ts-loader',
                 exclude: /node_modules/,
             },
-            {
-                test: /\.css$/i,
-                use: ["style-loader", "css-loader"],
-            },
         ]
     },
     devServer: {
-        liveReload: true,
-        magicHtml: true,
-        hot: true,
+        port: 3000,
+        hot: false,
     },
     resolve: {
         extensions: ['.ts', '.js'],
@@ -36,7 +35,7 @@ export const config: webpack.Configuration = {
         path: path.resolve(__dirname, 'dist'),
         filename: 'main.bundle.js',
     },
-    plugins: [new HtmlWebpackPlugin({ template: './src/index.html' })]
+    plugins: [new HtmlWebpackPlugin({ template: './src/index.html' , publicPath: './'} )]
 };
 
 export default config;

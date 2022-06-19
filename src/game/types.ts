@@ -1,6 +1,8 @@
 export interface IGameOptions
 {
     canvas: HTMLCanvasElement;
+    startBtn: HTMLButtonElement;
+    stopBtn: HTMLButtonElement;
     elementSize: number;
     xElements: number;
     yElements: number;

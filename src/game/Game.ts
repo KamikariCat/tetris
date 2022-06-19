@@ -7,6 +7,8 @@ import {equals} from "ramda";
 export class Game
 {
     canvas: HTMLCanvasElement;
+    startBtn: HTMLButtonElement;
+    stopBtn: HTMLButtonElement;
     partSize: number;
     xElements: number;
     yElements: number;
@@ -19,6 +21,7 @@ export class Game
     score: number;
     timer: NodeJS.Timer | null;
     stopped: boolean;
+    movingDown: boolean;
 
     staticStore: IStaticStoreElement[];
     dynamicElement: Element | null;
@@ -27,6 +30,9 @@ export class Game
     {
         // Options
         this.canvas = options.canvas;
+        this.startBtn = options.startBtn
+        this.stopBtn = options.stopBtn
+
         this.partSize = options.elementSize;
         this.xElements = options.xElements;
         this.yElements = options.yElements;
@@ -35,6 +41,7 @@ export class Game
         this.margin = options.gameMargin;
         this.stopped = true;
         this.score = 0;
+        this.movingDown = false;
 
         this.staticStore = []
         this.dynamicElement = null;
@@ -44,30 +51,43 @@ export class Game
         this.width = (this.margin * 2) + (this.xElements * this.partSize) + (this.hGap * (this.xElements-1));
         this.height = (this.margin * 2) + (this.yElements * this.partSize) + (this.vGap * (this.yElements-1));
 
-        // this.setCanvasSize();
-        this.createGameScene();
+        this.setCanvasSize();
+        this.createStartScene();
 
         this.controlKeys();
-
-        this.canvas.style.display = 'none';
-
-        document.getElementById('start').addEventListener('click', () =>
-        {
-            this.canvas.style.display = 'block';
-            this.start();
-        })
     }
 
-    fullscreen ()
+    createStartScene ()
     {
-        this.canvas.requestFullscreen().then(console.log).catch(console.log);
+        this.ctx.clearRect(0, 0, this.width, this.height)
+
+        this.ctx.fillStyle = '#151515';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        this.ctx.font = "30px Comic Sans MS";
+        this.ctx.fillStyle = "white";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText('START', this.width / 2 - this.margin, this.height / 2 - this.margin );
+    }
+
+    createLostScene ()
+    {
+        this.ctx.clearRect(0, 0, this.width, this.height)
+
+        this.ctx.fillStyle = '#151515';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        this.ctx.font = "30px Comic Sans MS";
+        this.ctx.fillStyle = "red";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText('You lost', this.width / 2 - this.margin, this.height / 2 - this.margin );
     }
 
     createGameScene ()
     {
          this.ctx.clearRect(0, 0, this.width, this.height)
 
-        this.ctx.fillStyle = 'rgb(17,17,17)';
+        this.ctx.fillStyle = '#333333';
         this.ctx.fillRect(0, 0, this.width, this.height);
 
         this.renderStaticStore();
@@ -77,14 +97,31 @@ export class Game
 
     public controlKeys ()
     {
+        this.startBtn.addEventListener('click', () => {
+            this.startBtn.disabled = true;
+            this.stopBtn.disabled = false;
+            this.start();
+        })
+        this.stopBtn.addEventListener('click', () => {
+            this.startBtn.disabled = false;
+            this.stopBtn.disabled = true;
+            this.stop();
+        })
+
         document.addEventListener('keyup', ev => {
+            if (this.stopped) return;
+            if (this.dynamicElement)
+            {
+                if (ev.key === 'ArrowUp') this.dynamicElement.rotate()
+                if (ev.key === 'ArrowDown') this.dynamicElement.moveDown()
+            }
+        })
+        document.addEventListener('keydown', ev => {
             if (this.stopped) return;
             if (this.dynamicElement)
             {
                 if (ev.key === 'ArrowLeft') this.dynamicElement.moveLeft()
                 if (ev.key === 'ArrowRight') this.dynamicElement.moveRight()
-                if (ev.key === 'ArrowUp') this.dynamicElement.rotate()
-                if (ev.key === 'ArrowDown') this.dynamicElement.update()
             }
         })
 
@@ -101,8 +138,6 @@ export class Game
             const endY = ev.changedTouches[0].clientY
 
             if (y > endY && y - endY > 200) return this.stopped ? this.start() : this.stop();
-
-            console.log({yo: y > endY && y - endY > 200});
 
             if (this.stopped) return;
 
@@ -132,27 +167,37 @@ export class Game
         this.deleteCompletedRows();
     }
 
-    public start ()
+    setInterval ()
     {
-        this.setCanvasSize()
-        this.fullscreen();
-        this.stop();
-        this.stopped = false;
-        this.spawnElement();
-        this.update();
         this.timer = setInterval(() => {
             if (this.dynamicElement)
                 this.dynamicElement.update();
         }, 800)
     }
 
-    public stop()
+    clearInterval ()
     {
         clearInterval(this.timer);
+    }
+
+    public start ()
+    {
+        this.stop();
+        this.stopped = false;
+        this.spawnElement();
+        this.createGameScene();
+        this.update();
+        this.setInterval();
+    }
+
+    public stop()
+    {
+        this.clearInterval();
         this.staticStore = [];
         this.dynamicElement = null;
         this.timer = null;
         this.stopped = true;
+        this.createStartScene();
     }
 
     public update ()
@@ -198,6 +243,11 @@ export class Game
     {
         if (!this.dynamicElement) return;
         this.dynamicElement.parts.forEach(part => {
+            this.ctx.fillStyle = part.color;
+            this.ctx.fillRect(...this.calculateElementPosition(part.x, part.y), this.partSize, this.partSize);
+        })
+
+        this.dynamicElement.reflection.forEach(part => {
             this.ctx.fillStyle = part.color;
             this.ctx.fillRect(...this.calculateElementPosition(part.x, part.y), this.partSize, this.partSize);
         })

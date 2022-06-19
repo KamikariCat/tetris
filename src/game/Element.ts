@@ -4,6 +4,7 @@ import {Game} from "./Game";
 export class Element
 {
     parts: IStaticStoreElement[];
+    reflection: IStaticStoreElement[];
     type: ElementType;
     startPoint: {x: number, y: number}
     color: string;
@@ -12,16 +13,29 @@ export class Element
     public constructor (game: Game, startPoint: {x: number, y: number}, type: ElementType, color: string)
     {
         this.parts = [];
+        this.reflection = [];
         this.color = color;
         this.type = type;
         this.startPoint = { x: 3, y: 1 };
         this.game = game;
-
         const canCreate = this.setShape(type);
         if (!canCreate){
             this.game.stop()
-            alert('You lost');
+            this.game.createLostScene();
         }
+    }
+
+    spawnFinalReflection () {
+        let reflectionParts: IStaticStoreElement[] = this.parts.map(o => ({...o, color: 'rgba(204,204,204,0.28)'}));
+
+        for (let i = 1; i <= 19; i++)
+        {
+            if (this.isElementDown(reflectionParts)) break;
+
+            reflectionParts = reflectionParts.map(p => ({...p, y: p.y + 1}));
+        }
+
+        this.reflection = reflectionParts;
     }
 
     public moveLeft ()
@@ -34,6 +48,7 @@ export class Element
 
         this.parts = this.parts.map(part => ({ ...part, x: part.x-1 }))
         this.startPoint.x--
+        this.spawnFinalReflection()
     }
 
     public moveRight ()
@@ -46,11 +61,11 @@ export class Element
 
         this.parts = this.parts.map(part => ({ ...part, x: part.x+1 }))
         this.startPoint.x++
+        this.spawnFinalReflection();
     }
 
     public rotate ()
     {
-        console.log(this.type)
         switch (this.type) {
             //! Straight
             case "hStraight":
@@ -118,8 +133,6 @@ export class Element
     public setShape (type: ElementType)
     {
         let parts: IStaticStoreElement[] = [];
-
-        console.log(type)
 
         switch (type)
         {
@@ -227,8 +240,6 @@ export class Element
         const minY = parts.reduce((p, c) => c.y < p ? c.y : p, this.game.yElements);
         const maxY = parts.reduce((p, c) => c.x < p ? c.y : p, this.game.yElements);
 
-        console.log(this.parts);
-
         if (minX < 1) parts = parts.map(p => ({ ...p, x: p.x + (1 - minX) }))
         if (maxX > this.game.xElements) parts = parts.map(p => ({ ...p, x: p.x - (maxX - this.game.xElements) }));
         if (minY < 1) parts = parts.map(p => ({ ...p, y: p.y + (1 - minY) }))
@@ -237,6 +248,7 @@ export class Element
         if (parts.some(p => this.game.staticStore.find(e => e.x === p.x && e.y === p.y))) return null;
 
         this.parts = parts
+        this.spawnFinalReflection();
         return true;
     }
 
@@ -250,9 +262,33 @@ export class Element
         ]
     }
 
+    public isElementDown (parts = this.parts)
+    {
+        return !!parts.find(
+                part => this.game.staticStore.find(
+                        staticElement => staticElement.x === part.x && staticElement.y === part.y+1
+                    )
+                    || part.y >= this.game.yElements
+            )
+            ?? false;
+    }
+
+    public moveDown ()
+    {
+        if (this.game.movingDown) return;
+        this.game.movingDown = true;
+        this.parts = this.reflection.map(p => ({...p, color: this.color}));
+        this.game.clearInterval();
+        setTimeout(() => {
+            this.update();
+            this.game.setInterval();
+            this.game.movingDown = false;
+        }, 500);
+    }
+
     public update ()
     {
-        const isClose = this.parts.find(part => this.game.staticStore.find(element => element.x === part.x && element.y === part.y+1) || part.y >= this.game.yElements) ?? null;
+        const isClose = this.isElementDown();
 
         if (!isClose)
         {

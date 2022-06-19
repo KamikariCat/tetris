@@ -3,7 +3,7 @@ const WebpackDevServer = require('webpack-dev-server');
 import {config as webpackConfig} from './webpack.config'
 
 const compiler = Webpack(webpackConfig);
-const devServerOptions = { ...webpackConfig.devServer, open: true };
+const devServerOptions = { ...webpackConfig.devServer};
 const server = new WebpackDevServer(devServerOptions, compiler);
 
 server.startCallback(() => {

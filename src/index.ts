@@ -1,20 +1,20 @@
-import './styles/normalize.css';
-import './styles/style.css';
-import './index.html'
-
 import { Game } from './game/Game';
 
 const canvas = document.getElementById('game');
+const startBtn = document.getElementById('start-btn') as HTMLButtonElement;
+const stopBtn = document.getElementById('stop-btn') as HTMLButtonElement;
 
 if (canvas instanceof HTMLCanvasElement)
 {
     new Game({
         canvas,
-        elementSize: 50,
-        gameMargin: 1,
-        elementGapHorizontal: 1,
-        elementGapVertical: 1,
+        startBtn,
+        stopBtn,
+        elementSize: 25,
+        gameMargin: 0,
+        elementGapHorizontal: 0,
+        elementGapVertical: 0,
         xElements: 10,
-        yElements: 16,
+        yElements: 20,
     });
 }
