@@ -6,7 +6,6 @@ const stopBtn = document.getElementById('stop-btn') as HTMLButtonElement;
 
 if (canvas instanceof HTMLCanvasElement)
 {
-    
     new Game({
         canvas,
         startBtn,
@@ -18,5 +17,4 @@ if (canvas instanceof HTMLCanvasElement)
         xElements: 10,
         yElements: 20,
     });
-    
 }
