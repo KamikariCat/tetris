@@ -50,6 +50,7 @@ export class Game {
         this.primary.addEventListener('click', () => this.toggle());
         this.overlayButton.addEventListener('click', () => this.toggle());
         this.restart.addEventListener('click', () => this.start());
+        this.fullscreen();
         this.controls(canvas);
         window.addEventListener('resize', () => { this.clearGesture(); this.renderer.resize(); this.render(); });
         window.addEventListener('blur', () => this.pause());
@@ -180,7 +181,38 @@ export class Game {
         if (gesture && this.canvas.hasPointerCapture(gesture.id)) this.canvas.releasePointerCapture(gesture.id);
     }
 
+    private fullscreen(): void {
+        const button = this.get<HTMLButtonElement>('fullscreen-btn');
+        button.hidden = !document.fullscreenEnabled;
+        button.addEventListener('click', async () => {
+            try {
+                if (document.fullscreenElement) await document.exitFullscreen();
+                else await document.documentElement.requestFullscreen();
+            } catch {
+                // The viewport layout still works if the browser disallows fullscreen.
+                button.hidden = true;
+            }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            const active = Boolean(document.fullscreenElement);
+            button.setAttribute('aria-pressed', String(active));
+            button.setAttribute('aria-label', active ? 'Выйти из полного экрана' : 'На весь экран');
+            button.title = button.getAttribute('aria-label')!;
+            this.clearGesture();
+            this.renderer.resize();
+            this.render();
+        });
+    }
+
     private controls(canvas: HTMLCanvasElement): void {
+        const surface = document.querySelector<HTMLElement>('.game-layout')!;
+        // Safari can start selection, a callout or rubber-band scrolling between quick taps.
+        for (const type of ['selectstart', 'contextmenu', 'dragstart']) {
+            surface.addEventListener(type, event => event.preventDefault());
+        }
+        surface.addEventListener('touchmove', event => {
+            if (event.cancelable) event.preventDefault();
+        }, { passive: false });
         const keys: Record<string, Action> = {
             ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'rotate',
             ArrowDown: 'down', Space: 'drop', KeyX: 'rotate', KeyZ: 'rotate',

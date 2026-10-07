@@ -119,6 +119,17 @@ test('mobile buttons, tap and vertical swipe control the game', async ({ page },
 });
 
 // Freeze gravity while observing the visible piece during a held touch.
+const readCells = canvas => canvas.evaluate(element => {
+    const ctx = element.getContext('2d');
+    const size = element.width / 10;
+    const result = [];
+    for (let y = 0; y < 20; y++) for (let x = 0; x < 10; x++) {
+        const [r, g, b] = ctx.getImageData(Math.floor((x + 0.5) * size), Math.floor((y + 0.5) * size), 1, 1).data;
+        if (Math.max(r, g, b) > 120) result.push([x, y]);
+    }
+    return result;
+});
+
 async function beginDrag(page) {
     await page.addInitScript(() => {
         Math.random = () => 0;
@@ -136,19 +147,109 @@ async function beginDrag(page) {
     const touch = (type, x = point.x) => client.send('Input.dispatchTouchEvent', {
         type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y: point.y }],
     });
-    const cells = () => canvas.evaluate(element => {
-        const ctx = element.getContext('2d');
-        const size = element.width / 10;
-        const result = [];
-        for (let y = 0; y < 20; y++) for (let x = 0; x < 10; x++) {
-            const [r, g, b] = ctx.getImageData(Math.floor((x + 0.5) * size), Math.floor((y + 0.5) * size), 1, 1).data;
-            if (Math.max(r, g, b) > 120) result.push([x, y]);
-        }
-        return result;
-    });
+    const cells = () => readCells(canvas);
     return { box, point, cellWidth, touch, cells };
 }
 const shifted = (cells, dx) => cells.map(([x, y]) => [x + dx, y]);
+async function tryScrolling(page, testInfo) {
+    // Playwright's mobile WebKit does not implement mouse-wheel input.
+    if (testInfo.project.name === 'safari-mobile') await page.evaluate(() => scrollTo(0, 700));
+    else await page.mouse.wheel(0, 700);
+}
+
+test('the entire mobile game fits short phones, tablets and landscape without scrolling', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'desktop');
+    await page.goto('/');
+    for (const [width, height] of [[320, 480], [320, 568], [360, 640], [390, 664], [412, 839], [768, 1024], [851, 393], [667, 320]]) {
+        await page.setViewportSize({ width, height });
+        for (const selector of ['.stats-panel', '#game', '#overlay-btn', '#start-btn', '#restart-btn', '.touch-controls']) {
+            // WebKit rounds fractional intersection widths; also check the actual bounds.
+            await expect(page.locator(selector), `${selector} on ${width} × ${height}`).toBeInViewport({ ratio: 0.99 });
+            const box = await page.locator(selector).boundingBox();
+            expect(box.x).toBeGreaterThanOrEqual(0);
+            expect(box.y).toBeGreaterThanOrEqual(0);
+            expect(box.x + box.width).toBeLessThanOrEqual(width);
+            expect(box.y + box.height).toBeLessThanOrEqual(height);
+        }
+        const size = await page.locator('#game').boundingBox();
+        expect(size.height / size.width).toBeCloseTo(2, 1);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+    }
+    await page.locator('#overlay-btn').tap();
+    await tryScrolling(page, testInfo);
+    expect(await page.evaluate(() => [scrollX, scrollY])).toEqual([0, 0]);
+    await expect(page.locator('.touch-controls')).toBeInViewport({ ratio: 1 });
+});
+
+test('touch taps rotate once and each control tap moves one cell on mobile browsers', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'desktop');
+    await page.addInitScript(() => {
+        Math.random = () => 0;
+        window.requestAnimationFrame = () => 0;
+        window.cancelAnimationFrame = () => {};
+    });
+    await page.goto('/');
+    await page.locator('#overlay-btn').tap();
+    const canvas = page.locator('#game');
+    const box = await canvas.boundingBox();
+    const before = await readCells(canvas);
+    await canvas.tap();
+    const rotated = await readCells(canvas);
+    expect(rotated).not.toEqual(before);
+    await page.locator('[data-action="left"]').tap();
+    expect(await readCells(canvas)).toEqual(shifted(rotated, -1));
+    await page.locator('[data-action="right"]').tap();
+    expect(await readCells(canvas)).toEqual(rotated);
+    for (let i = 0; i < 6; i++) await canvas.tap();
+    await page.locator('#score').dblclick();
+    await tryScrolling(page, testInfo);
+    expect(await page.evaluate(() => ({ selection: getSelection()?.toString(), scroll: [scrollX, scrollY], scale: visualViewport.scale }))).toEqual({ selection: '', scroll: [0, 0], scale: 1 });
+    expect(await canvas.boundingBox()).toEqual(box);
+});
+
+test('rapid taps and drags neither select text, zoom nor move the mobile interface', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile');
+    const drag = await beginDrag(page);
+    const initial = await drag.cells();
+    await drag.touch('touchStart');
+    await drag.touch('touchEnd');
+    expect(await drag.cells()).not.toEqual(initial);
+    // Real touch events reproduce fast alternating taps and drags, including double taps.
+    for (let i = 0; i < 6; i++) {
+        await drag.touch('touchStart');
+        await drag.touch('touchEnd');
+        await drag.touch('touchStart');
+        await drag.touch('touchMove', drag.point.x + drag.cellWidth * 1.4);
+        await drag.touch('touchMove', drag.point.x);
+        await drag.touch('touchEnd');
+    }
+    const client = await page.context().newCDPSession(page);
+    const score = await page.locator('#score').boundingBox();
+    const point = { x: score.x + score.width / 2, y: score.y + score.height / 2 };
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...point, y: point.y + 180 }] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.locator('#score').dblclick();
+    await page.mouse.wheel(0, 500);
+    expect(await page.evaluate(() => ({ selection: getSelection()?.toString(), scroll: [scrollX, scrollY], scale: visualViewport.scale }))).toEqual({ selection: '', scroll: [0, 0], scale: 1 });
+    expect(await page.locator('#game').boundingBox()).toEqual(drag.box);
+    await expect(page.locator('#status')).toHaveText('Игра идёт');
+});
+
+test('fullscreen can be entered and exited without losing the game', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#start-btn').click();
+    if (!await page.evaluate(() => document.fullscreenEnabled)) {
+        await expect(page.locator('#fullscreen-btn')).toBeHidden();
+        return;
+    }
+    await page.locator('#fullscreen-btn').click();
+    await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
+    await expect(page.locator('#fullscreen-btn')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#fullscreen-btn').click();
+    await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
+    await expect(page.locator('#status')).toHaveText('Игра идёт');
+});
 
 test('a held finger moves the figure immediately across cells and back without rotating on release', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile');
