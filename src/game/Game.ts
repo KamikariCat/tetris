@@ -1,8 +1,19 @@
 import { Engine } from './Engine';
+import { Element } from './Element';
 import { Renderer } from './Renderer';
 import { GameStatus } from './types';
 
 type Action = 'left' | 'right' | 'rotate' | 'down' | 'drop';
+interface DragGesture {
+    id: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    remainderX: number;
+    cellWidth: number;
+    dragging: boolean;
+    piece: Element;
+}
 
 export class Game {
     private engine = new Engine();
@@ -13,6 +24,8 @@ export class Game {
     private repeatTimer: ReturnType<typeof setInterval> | null = null;
     private best = 0;
     private lastStatus: GameStatus | null = null;
+    private gesture: DragGesture | null = null;
+    private canvas = this.get<HTMLCanvasElement>('game');
     private primary = this.get<HTMLButtonElement>('start-btn');
     private restart = this.get<HTMLButtonElement>('restart-btn');
     private overlay = this.get<HTMLElement>('overlay');
@@ -28,7 +41,7 @@ export class Game {
     };
 
     constructor() {
-        const canvas = this.get<HTMLCanvasElement>('game');
+        const canvas = this.canvas;
         this.renderer = new Renderer(canvas, this.get<HTMLCanvasElement>('next'));
         try {
             const stored = Number(localStorage.getItem('noritris.best'));
@@ -38,7 +51,7 @@ export class Game {
         this.overlayButton.addEventListener('click', () => this.toggle());
         this.restart.addEventListener('click', () => this.start());
         this.controls(canvas);
-        window.addEventListener('resize', () => { this.renderer.resize(); this.render(); });
+        window.addEventListener('resize', () => { this.clearGesture(); this.renderer.resize(); this.render(); });
         window.addEventListener('blur', () => this.pause());
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) this.pause();
@@ -55,6 +68,7 @@ export class Game {
     private start(): void {
         this.cancelLoop();
         this.clearRepeat();
+        this.clearGesture();
         this.engine.start();
         this.elapsed = 0;
         this.render();
@@ -72,6 +86,7 @@ export class Game {
 
     private pause(): void {
         this.clearRepeat();
+        this.clearGesture();
         if (this.engine.status !== 'playing') return;
         this.engine.pause();
         this.cancelLoop();
@@ -118,6 +133,7 @@ export class Game {
 
     private render(): void {
         const engine = this.engine;
+        if (engine.status !== 'playing' || this.gesture?.piece !== engine.active) this.clearGesture();
         if (engine.score > this.best) {
             this.best = engine.score;
             try { localStorage.setItem('noritris.best', String(this.best)); } catch { /* Optional persistence. */ }
@@ -157,6 +173,12 @@ export class Game {
         if (this.repeatTimer !== null) clearInterval(this.repeatTimer);
         this.repeatTimer = null;
     };
+
+    private clearGesture(): void {
+        const gesture = this.gesture;
+        this.gesture = null;
+        if (gesture && this.canvas.hasPointerCapture(gesture.id)) this.canvas.releasePointerCapture(gesture.id);
+    }
 
     private controls(canvas: HTMLCanvasElement): void {
         const keys: Record<string, Action> = {
@@ -201,22 +223,61 @@ export class Game {
             button.addEventListener('pointerup', this.clearRepeat);
             button.addEventListener('pointercancel', this.clearRepeat);
         });
-        let gesture: { x: number; y: number; id: number } | null = null;
         canvas.addEventListener('pointerdown', event => {
-            if (event.pointerType === 'mouse' || this.engine.status !== 'playing' || gesture) return;
-            gesture = { x: event.clientX, y: event.clientY, id: event.pointerId };
+            if (event.pointerType === 'mouse' || !event.isPrimary || this.engine.status !== 'playing'
+                || !this.engine.active || this.gesture) return;
+            event.preventDefault();
+            this.gesture = {
+                id: event.pointerId, startX: event.clientX, startY: event.clientY,
+                lastX: event.clientX, remainderX: 0,
+                cellWidth: Math.max(1, canvas.getBoundingClientRect().width / this.engine.columns),
+                dragging: false, piece: this.engine.active,
+            };
             canvas.setPointerCapture(event.pointerId);
         });
-        canvas.addEventListener('pointerup', event => {
+        const followFinger = (event: PointerEvent): void => {
+            const gesture = this.gesture;
             if (!gesture || gesture.id !== event.pointerId) return;
-            const dx = event.clientX - gesture.x;
-            const dy = event.clientY - gesture.y;
-            gesture = null;
+            if (this.engine.status !== 'playing' || this.engine.active !== gesture.piece) {
+                this.clearGesture();
+                return;
+            }
+            const dx = event.clientX - gesture.startX;
+            const dy = event.clientY - gesture.startY;
+            gesture.remainderX += event.clientX - gesture.lastX;
+            gesture.lastX = event.clientX;
+            if (!gesture.dragging && Math.abs(dx) >= Math.min(10, gesture.cellWidth / 2)
+                && Math.abs(dx) >= Math.abs(dy)) gesture.dragging = true;
+            if (!gesture.dragging) return;
+            let moved = false;
+            while (Math.abs(gesture.remainderX) >= gesture.cellWidth) {
+                const direction = gesture.remainderX > 0 ? 1 : -1;
+                if (!this.engine.move(direction)) {
+                    // Discard overshoot at a wall or block so reversing the finger responds immediately.
+                    gesture.remainderX = 0;
+                    break;
+                }
+                gesture.remainderX -= direction * gesture.cellWidth;
+                moved = true;
+            }
+            if (moved) this.render();
+        };
+        canvas.addEventListener('pointermove', followFinger);
+        canvas.addEventListener('pointerup', event => {
+            const gesture = this.gesture;
+            if (!gesture || gesture.id !== event.pointerId) return;
+            followFinger(event);
+            this.clearGesture();
+            if (this.engine.status !== 'playing' || this.engine.active !== gesture.piece || gesture.dragging) return;
+            const dx = event.clientX - gesture.startX;
+            const dy = event.clientY - gesture.startY;
             if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) this.act('rotate');
-            else if (Math.abs(dx) > Math.abs(dy)) this.act(dx > 0 ? 'right' : 'left');
-            else this.act(dy > 0 ? 'drop' : 'rotate');
+            else if (Math.abs(dy) > Math.abs(dx)) this.act(dy > 0 ? 'drop' : 'rotate');
         });
-        canvas.addEventListener('pointercancel', () => { gesture = null; });
-        canvas.addEventListener('lostpointercapture', () => { gesture = null; });
+        const cancelGesture = (event: PointerEvent): void => {
+            if (this.gesture?.id === event.pointerId) this.clearGesture();
+        };
+        canvas.addEventListener('pointercancel', cancelGesture);
+        canvas.addEventListener('lostpointercapture', cancelGesture);
     }
 }

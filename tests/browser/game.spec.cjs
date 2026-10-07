@@ -98,7 +98,7 @@ test('record survives reload and blocked storage does not prevent playing', asyn
     await expect(page.locator('#score')).not.toHaveText('0');
 });
 
-test('mobile buttons, tap and swipe control the game', async ({ page }, testInfo) => {
+test('mobile buttons, tap and vertical swipe control the game', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile');
     await page.goto('/');
     await page.locator('#overlay-btn').tap();
@@ -116,4 +116,92 @@ test('mobile buttons, tap and swipe control the game', async ({ page }, testInfo
     await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...point, y: point.y + 80 }] });
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect.poll(async () => Number((await page.locator('#score').textContent()).replace(/\s/g, ''))).toBeGreaterThan(score);
+});
+
+// Freeze gravity while observing the visible piece during a held touch.
+async function beginDrag(page) {
+    await page.addInitScript(() => {
+        Math.random = () => 0;
+        window.requestAnimationFrame = () => 0;
+        window.cancelAnimationFrame = () => {};
+    });
+    await page.goto('/');
+    await page.locator('#overlay-btn').tap();
+    const canvas = page.locator('#game');
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    const client = await page.context().newCDPSession(page);
+    const point = { x: box.x + box.width / 10, y: box.y + box.height / 2 };
+    const cellWidth = box.width / 10;
+    const touch = (type, x = point.x) => client.send('Input.dispatchTouchEvent', {
+        type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y: point.y }],
+    });
+    const cells = () => canvas.evaluate(element => {
+        const ctx = element.getContext('2d');
+        const size = element.width / 10;
+        const result = [];
+        for (let y = 0; y < 20; y++) for (let x = 0; x < 10; x++) {
+            const [r, g, b] = ctx.getImageData(Math.floor((x + 0.5) * size), Math.floor((y + 0.5) * size), 1, 1).data;
+            if (Math.max(r, g, b) > 120) result.push([x, y]);
+        }
+        return result;
+    });
+    return { box, point, cellWidth, touch, cells };
+}
+const shifted = (cells, dx) => cells.map(([x, y]) => [x + dx, y]);
+
+test('a held finger moves the figure immediately across cells and back without rotating on release', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile');
+    const drag = await beginDrag(page);
+    const initial = await drag.cells();
+    expect(initial).toHaveLength(4);
+    await drag.touch('touchStart');
+    expect(await drag.cells()).toEqual(initial);
+    await drag.touch('touchMove', drag.point.x + drag.cellWidth * 1.4);
+    await expect.poll(drag.cells).toEqual(shifted(initial, 1));
+    await drag.touch('touchMove', drag.point.x + drag.cellWidth * 3.4);
+    await expect.poll(drag.cells).toEqual(shifted(initial, 3));
+    await drag.touch('touchMove', drag.point.x - drag.cellWidth * 1.4);
+    await expect.poll(drag.cells).toEqual(shifted(initial, -1));
+    await drag.touch('touchEnd');
+    expect(await drag.cells()).toEqual(shifted(initial, -1));
+    await expect(page.locator('#score')).toHaveText('0');
+});
+
+test('dragging past the wall keeps the figure inside and reverses without finger overshoot', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile');
+    const drag = await beginDrag(page);
+    const initial = await drag.cells();
+    await drag.touch('touchStart');
+    const outside = drag.box.x + drag.box.width + 8;
+    await drag.touch('touchMove', outside);
+    await expect.poll(async () => Math.max(...(await drag.cells()).map(([x]) => x))).toBe(9);
+    await drag.touch('touchMove', outside - drag.cellWidth * 1.4);
+    await expect.poll(drag.cells).toEqual(shifted(initial, 2));
+    await drag.touch('touchEnd');
+    expect(await drag.cells()).toEqual(shifted(initial, 2));
+    await expect(page.locator('#score')).toHaveText('0');
+});
+
+test('pausing, restarting and cancelling a held touch do not carry gestures into the next session', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile');
+    const drag = await beginDrag(page);
+    await drag.touch('touchStart');
+    await drag.touch('touchMove', drag.point.x + drag.cellWidth * 1.4);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('KeyP');
+    const paused = await drag.cells();
+    await drag.touch('touchMove', drag.point.x + drag.cellWidth * 3.4);
+    await drag.touch('touchEnd');
+    expect(await drag.cells()).toEqual(paused);
+    await drag.touch('touchStart');
+    await page.locator('#restart-btn').click();
+    const restarted = await drag.cells();
+    await drag.touch('touchMove', drag.point.x + drag.cellWidth * 3.4);
+    await drag.touch('touchEnd');
+    expect(await drag.cells()).toEqual(restarted);
+    await drag.touch('touchStart');
+    await drag.touch('touchCancel');
+    expect(await drag.cells()).toEqual(restarted);
+    await expect(page.locator('#score')).toHaveText('0');
 });
