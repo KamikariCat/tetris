@@ -34,25 +34,34 @@ const server = createServer(async (request, response) => {
         response.writeHead(404).end('Not found');
     }
 });
-const compiler = webpack({ ...config, mode: 'development', devtool: 'source-map' });
-let listening = false;
-const watching = compiler.watch({ aggregateTimeout: 150 }, (error, stats) => {
-    if (error) { console.error(error); return; }
-    if (stats?.hasErrors()) {
-        console.error(stats.toString({ all: false, errors: true }));
-        return;
-    }
-    console.log('NORITris compiled.');
-    if (!listening) {
-        listening = true;
-        server.listen(3000, '0.0.0.0', () => console.log('NORITris: http://localhost:3000'));
-    }
-});
-if (!watching) throw new Error('Unable to start the webpack watcher.');
+const preview = process.argv.includes('--preview');
+const port = preview ? 3001 : 3000;
+const listen = () => server.listen(port, '0.0.0.0', () => console.log(`NORITris: http://localhost:${port}`));
+let stopWatching = (callback: () => void): void => callback();
+if (preview) {
+    listen();
+} else {
+    const compiler = webpack({ ...config, mode: 'development', devtool: 'source-map' });
+    let listening = false;
+    const watching = compiler.watch({ aggregateTimeout: 150 }, (error, stats) => {
+        if (error) { console.error(error); return; }
+        if (stats?.hasErrors()) {
+            console.error(stats.toString({ all: false, errors: true }));
+            return;
+        }
+        console.log('NORITris compiled.');
+        if (!listening) {
+            listening = true;
+            listen();
+        }
+    });
+    if (!watching) throw new Error('Unable to start the webpack watcher.');
+    stopWatching = callback => watching.close(callback);
+}
 server.on('error', error => {
     console.error(error);
-    watching.close(() => { process.exitCode = 1; });
+    stopWatching(() => { process.exitCode = 1; });
 });
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-    process.once(signal, () => watching.close(() => server.close(() => process.exit(0))));
+    process.once(signal, () => stopWatching(() => server.close(() => process.exit(0))));
 }

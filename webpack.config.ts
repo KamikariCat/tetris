@@ -8,6 +8,8 @@ export const config: webpack.Configuration = {
     module: {
         rules: [
             { test: /\.html$/i, loader: 'html-loader' },
+            // Stable CSS names keep HTML URLs valid when production minimization changes the contents.
+            { test: /\.css$/i, type: 'asset/resource', generator: { filename: 'styles/[name][ext]' } },
             { test: /\.ts$/, use: 'ts-loader', exclude: /node_modules/ },
         ],
     },
