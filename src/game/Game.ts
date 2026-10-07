@@ -8,8 +8,8 @@ interface DragGesture {
     id: number;
     startX: number;
     startY: number;
-    lastX: number;
-    remainderX: number;
+    originX: number;
+    anchorX: number;
     cellWidth: number;
     dragging: boolean;
     piece: Element;
@@ -229,7 +229,7 @@ export class Game {
             event.preventDefault();
             this.gesture = {
                 id: event.pointerId, startX: event.clientX, startY: event.clientY,
-                lastX: event.clientX, remainderX: 0,
+                originX: event.clientX, anchorX: this.engine.active.x,
                 cellWidth: Math.max(1, canvas.getBoundingClientRect().width / this.engine.columns),
                 dragging: false, piece: this.engine.active,
             };
@@ -244,20 +244,19 @@ export class Game {
             }
             const dx = event.clientX - gesture.startX;
             const dy = event.clientY - gesture.startY;
-            gesture.remainderX += event.clientX - gesture.lastX;
-            gesture.lastX = event.clientX;
             if (!gesture.dragging && Math.abs(dx) >= Math.min(10, gesture.cellWidth / 2)
                 && Math.abs(dx) >= Math.abs(dy)) gesture.dragging = true;
             if (!gesture.dragging) return;
+            const targetX = gesture.anchorX + Math.round((event.clientX - gesture.originX) / gesture.cellWidth);
             let moved = false;
-            while (Math.abs(gesture.remainderX) >= gesture.cellWidth) {
-                const direction = gesture.remainderX > 0 ? 1 : -1;
+            while (gesture.piece.x !== targetX) {
+                const direction = targetX > gesture.piece.x ? 1 : -1;
                 if (!this.engine.move(direction)) {
-                    // Discard overshoot at a wall or block so reversing the finger responds immediately.
-                    gesture.remainderX = 0;
+                    // Re-anchor at a wall or block so reversing does not need to undo finger overshoot.
+                    gesture.originX = event.clientX;
+                    gesture.anchorX = gesture.piece.x;
                     break;
                 }
-                gesture.remainderX -= direction * gesture.cellWidth;
                 moved = true;
             }
             if (moved) this.render();

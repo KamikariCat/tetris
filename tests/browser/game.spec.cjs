@@ -161,6 +161,8 @@ test('a held finger moves the figure immediately across cells and back without r
     await expect.poll(drag.cells).toEqual(shifted(initial, 1));
     await drag.touch('touchMove', drag.point.x + drag.cellWidth * 3.4);
     await expect.poll(drag.cells).toEqual(shifted(initial, 3));
+    await drag.touch('touchMove', drag.point.x + drag.cellWidth * 0.4);
+    await expect.poll(drag.cells).toEqual(initial);
     await drag.touch('touchMove', drag.point.x - drag.cellWidth * 1.4);
     await expect.poll(drag.cells).toEqual(shifted(initial, -1));
     await drag.touch('touchEnd');
