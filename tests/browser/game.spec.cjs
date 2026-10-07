@@ -8,7 +8,7 @@ test('the layout fits small phones, tablets and desktop widths', async ({ page }
     }
 });
 
-test('the development server serves assets and rejects private files and invalid requests', async ({ request }) => {
+test('the preview server serves assets and rejects private files and invalid requests', async ({ request }) => {
     const html = await request.get('/');
     expect(html.status()).toBe(200);
     expect(html.headers()['content-type']).toContain('text/html');
@@ -25,6 +25,8 @@ test('loads without errors, fits the screen and starts with either primary butto
     page.on('response', response => { if (response.status() >= 400) errors.push(response.url()); });
     await page.goto('/');
     await expect(page).toHaveTitle(/NORITris/);
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 19, 24)');
+    await expect(page.locator('.game-layout')).toHaveCSS('display', 'grid');
     await expect(page.locator('#overlay')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.locator('#overlay-btn').click();

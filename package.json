@@ -8,12 +8,13 @@
     "dev": "ts-node ./wp-server.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --test -r ts-node/register tests/engine.test.cjs",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "preview": "ts-node ./wp-server.ts --preview"
   },
   "author": "NORI",
   "license": "ISC",
   "keywords": [],
-  "description": "NORITris \u2014 a cozy browser puzzle built with TypeScript and Canvas.",
+  "description": "NORITris — a cozy browser puzzle built with TypeScript and Canvas.",
   "devDependencies": {
     "@playwright/test": "^1.64.0",
     "@types/node": "^22.20.5",
