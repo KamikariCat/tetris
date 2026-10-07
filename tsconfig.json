@@ -1,16 +1,26 @@
 {
   "compilerOptions": {
-    "outDir": "./dist/",
-    "noImplicitAny": true,
+    "target": "ES2020",
     "module": "ESNext",
-    "target": "es5",
-    "allowJs": true,
     "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist"
   },
   "ts-node": {
     "compilerOptions": {
       "module": "CommonJS"
     }
-  }
+  },
+  "include": [
+    "src/**/*.ts",
+    "webpack.config.ts",
+    "wp-server.ts"
+  ]
 }

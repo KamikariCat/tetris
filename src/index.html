@@ -1,22 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Tetris</title>
+    <title>NORITris — поймай свой ритм</title>
+    <meta name="description" content="Маленькая пауза для большой перезагрузки. Играй в NORITris: собирай линии, лови ритм и побей свой рекорд.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#141318">
     <link rel="stylesheet" href="styles/normalize.css">
     <link rel="stylesheet" href="styles/style.css">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
 </head>
 <body>
-<header>
-    <h3>NORITris</h3>
-</header>
-    <div class="container">
-        <canvas id="game"></canvas>
-        <div class="menu">
-            <button id="start-btn">Start</button>
-            <button id="stop-btn">Stop</button>
-        </div>
+    <div class="site-shell">
+        <header class="site-header">
+            <a class="brand" href="./" aria-label="NORITris — главная">
+                <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                <span>NORI<span class="brand-light">Tris</span><span class="brand-dot">.</span></span>
+            </a>
+            <div class="header-right"><span class="arcade-label">ТВОЯ МАЛЕНЬКАЯ АРКАДА</span><a class="source-link" href="https://github.com/KamikariCat/tetris" target="_blank" rel="noopener noreferrer" aria-label="Исходный код на GitHub">GitHub <svg class="arrow-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8"/></svg></a></div>
+        </header>
+        <main>
+            <section class="intro" aria-labelledby="title">
+                <div><p class="eyebrow"><span></span> ПРОСТО ЕЩЁ ОДНА ПАРТИЯ</p><h1 id="title">Маленькие блоки.<br><span>Большое удовольствие.</span></h1></div>
+                <p class="intro-note">Выдохни. Найди свой ритм.<br>Всё остальное сложится.</p>
+            </section>
+            <section class="game-layout" aria-label="Игра NORITris">
+                <div class="board-panel">
+                    <div class="panel-heading"><span>ИГРОВОЕ ПОЛЕ</span><span class="board-dimensions">10 × 20</span></div>
+                    <div class="board-frame">
+                        <canvas id="game" width="300" height="600" role="img" aria-label="Игровое поле, 10 столбцов и 20 рядов" aria-describedby="keyboard-help">Для игры нужен браузер с поддержкой Canvas.</canvas>
+                        <div id="overlay" class="board-overlay">
+                            <div class="overlay-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                            <p class="overlay-kicker">NORITris</p>
+                            <h2 id="overlay-title">Поймай свой ритм</h2>
+                            <p id="overlay-text">Собирай линии. Освобождай место. И просто наслаждайся.</p>
+                            <button id="overlay-btn" class="button primary">Начать игру</button>
+                            <span class="overlay-hint">Никуда не спешим.</span>
+                        </div>
+                    </div>
+                    <div class="board-footer"><span id="status" class="status" role="status" data-state="idle">Готов к игре</span><span class="footer-squares" aria-hidden="true"><i></i><i></i><i></i></span></div>
+                </div>
+                <aside class="sidebar" aria-label="Счёт и управление">
+                    <div class="score-card"><div class="stat-heading"><span>ТВОЙ СЧЁТ</span><span class="tiny-star" aria-hidden="true">✦</span></div><p id="score" class="score-value">0</p><div class="record-row"><span>Личный рекорд</span><span id="best">0</span></div></div>
+                    <div class="stat-pair"><div class="small-stat"><span>ЛИНИИ</span><strong id="lines">0</strong></div><div class="small-stat"><span>УРОВЕНЬ</span><strong id="level">01</strong></div></div>
+                    <div class="next-card"><div><span class="card-label">ДАЛЬШЕ</span><p>На очереди</p></div><canvas id="next" width="160" height="96" role="img" aria-label="Следующая фигура"></canvas></div>
+                    <div class="game-buttons"><button id="start-btn" class="button primary">Начать игру</button><button id="restart-btn" class="button secondary" disabled><span aria-hidden="true">↻</span> Заново</button></div>
+                    <div class="help-card" id="keyboard-help"><h2>Всё в твоих руках <svg class="arrow-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8"/></svg></h2><dl><div><dt>Двигать</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div><div><dt>Повернуть</dt><dd><kbd>↑</kbd></dd></div><div><dt>Ускорить</dt><dd><kbd>↓</kbd></dd></div><div><dt>Сбросить</dt><dd><kbd class="wide-key">Пробел</kbd></dd></div><div><dt>Пауза</dt><dd><kbd>Esc</kbd><span class="key-or">/</span><kbd>P</kbd></dd></div></dl><p class="touch-hint">На телефоне: кнопки или свайпы по полю. Касание — поворот, свайп вниз — сброс.</p></div>
+                    <div class="little-note"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v26M3 16h26M7 7l18 18M7 25 25 7"/></svg><p>Не обязательно ставить рекорд.<br>Иногда достаточно просто поиграть.</p></div>
+                </aside>
+                <div class="touch-controls" aria-label="Кнопки управления"><button data-action="left" aria-label="Двигать влево" disabled>←</button><button data-action="rotate" aria-label="Повернуть фигуру" disabled>↻</button><button data-action="right" aria-label="Двигать вправо" disabled>→</button><button data-action="down" aria-label="Ускорить падение" disabled>↓</button><button data-action="drop" class="drop-control" aria-label="Сбросить фигуру" disabled><span aria-hidden="true">⤓</span> Сбросить</button></div>
+                <p class="mobile-hint">Можно и свайпами: вбок — двигать, вниз — сбросить.<br>Касание поля — поворот.</p>
+            </section>
+        </main>
+        <footer class="site-footer"><span>Сделано NORI <span aria-hidden="true">♡</span></span><span>Меньше суеты. Больше хороших линий.</span></footer>
     </div>
 </body>
 </html>

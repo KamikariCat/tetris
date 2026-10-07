@@ -1,40 +1,5 @@
-export interface IGameOptions
-{
-    canvas: HTMLCanvasElement;
-    startBtn: HTMLButtonElement;
-    stopBtn: HTMLButtonElement;
-    elementSize: number;
-    xElements: number;
-    yElements: number;
-    elementGapVertical: number;
-    elementGapHorizontal: number;
-    gameMargin: number;
-}
-
-export type ElementType =
-    | 'hStraight'
-    | 'vStraight'
-    // clockwise margin
-    | 'cwTopLeft'
-    | 'cwTopRight'
-    | 'cwBottomRight'
-    | 'cwBottomLeft'
-    // counterclockwise margin
-    | 'ccwTopLeft'
-    | 'ccwTopRight'
-    | 'ccwBottomRight'
-    | 'ccwBottomLeft'
-    // TShape
-    | 'tShapeTop'
-    | 'tShapeBottom'
-    | 'tShapeLeft'
-    | 'tShapeRight'
-    // Rect
-    | 'rect'
-
-export interface IStaticStoreElement
-{
-    x: number;
-    y: number;
-    color: string;
-}
+export type PieceType = 'I' | 'O' | 'T' | 'S' | 'Z' | 'J' | 'L';
+export type GameStatus = 'idle' | 'playing' | 'paused' | 'over';
+export type Matrix = number[][];
+export interface Cell { x: number; y: number; color: string; }
+export type CanPlace = (cells: Cell[]) => boolean;
