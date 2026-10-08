@@ -8,6 +8,7 @@ const root = resolve(__dirname, 'dist');
 const mime: Record<string, string> = {
     '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
     '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.map': 'application/json',
+    '.png': 'image/png', '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 const server = createServer(async (request, response) => {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
