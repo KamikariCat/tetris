@@ -204,8 +204,10 @@ export class Game {
         });
     }
 
-    private controls(canvas: HTMLCanvasElement): void {
-        const surface = document.querySelector<HTMLElement>('.game-layout')!;
+    private touchSurface(surface: HTMLElement): void {
+        const mobile = window.matchMedia('(max-width: 600px), (pointer: coarse)');
+        const inGame = (event: Event): boolean => mobile.matches || surface.contains(event.target as Node);
+        let pressed: { button: HTMLButtonElement; id: number; x: number; y: number } | null = null;
         // Safari can start selection, a callout or rubber-band scrolling between quick taps.
         for (const type of ['selectstart', 'contextmenu', 'dragstart']) {
             surface.addEventListener(type, event => event.preventDefault());
@@ -213,6 +215,41 @@ export class Game {
         surface.addEventListener('touchmove', event => {
             if (event.cancelable) event.preventDefault();
         }, { passive: false });
+        document.addEventListener('touchstart', event => {
+            if (!inGame(event)) return;
+            pressed = null;
+            if (event.touches.length !== 1) return;
+            const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button:not([data-action])');
+            if (!button || !surface.contains(button) || button.disabled) return;
+            const touch = event.touches[0];
+            pressed = { button, id: touch.identifier, x: touch.clientX, y: touch.clientY };
+        }, { passive: true, capture: true });
+        document.addEventListener('touchmove', event => {
+            if (!pressed) return;
+            const touch = Array.from(event.touches).find(touch => touch.identifier === pressed!.id);
+            if (!touch || Math.max(Math.abs(touch.clientX - pressed.x), Math.abs(touch.clientY - pressed.y)) > 10) pressed = null;
+        }, { passive: true, capture: true });
+        document.addEventListener('touchend', event => {
+            if (!inGame(event)) return;
+            const press = pressed;
+            pressed = null;
+            if (!event.cancelable) return;
+            // Cancel the native double-tap zoom, including taps on the screen's empty margins.
+            event.preventDefault();
+            // Cancelling touchend also suppresses its native click. Keep UI buttons working;
+            // the canvas and data-action controls already act on pointer events.
+            if (!press || event.touches.length || press.button.disabled) return;
+            const touch = Array.from(event.changedTouches).find(touch => touch.identifier === press.id);
+            const rect = press.button.getBoundingClientRect();
+            if (touch && touch.clientX >= rect.left && touch.clientX <= rect.right
+                && touch.clientY >= rect.top && touch.clientY <= rect.bottom) press.button.click();
+        }, { passive: false, capture: true });
+        document.addEventListener('touchcancel', () => { pressed = null; }, { passive: true, capture: true });
+        document.addEventListener('dblclick', event => { if (inGame(event)) event.preventDefault(); });
+    }
+
+    private controls(canvas: HTMLCanvasElement): void {
+        this.touchSurface(document.querySelector<HTMLElement>('.game-layout')!);
         const keys: Record<string, Action> = {
             ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'rotate',
             ArrowDown: 'down', Space: 'drop', KeyX: 'rotate', KeyZ: 'rotate',

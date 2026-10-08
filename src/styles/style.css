@@ -42,6 +42,7 @@ h1 span { color: #aaa2af; font-weight: 400; }
 .intro-note { color: var(--muted); font-size: 12px; line-height: 1.9; margin: 0 0 3px; text-align: right; }
 .game-layout { display: grid; grid-template-columns: 360px 300px; justify-content: center; gap: 24px; align-items: start; }
 .game-layout { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.game-layout button, .board-overlay { touch-action: none; }
 .board-panel { border: 1px solid #ffffff12; background: linear-gradient(140deg, #27232e, #1e1c24 60%); padding: 17px 21px 14px; border-radius: 18px; box-shadow: 0 12px 80px #00000030; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; margin: 0 0 14px; color: #a69dab; font-size: 9px; font-weight: 600; letter-spacing: 1.4px; }
 .board-dimensions { font-size: 10px; color: #756c7e; letter-spacing: 1px; }
@@ -128,7 +129,7 @@ kbd { display: inline-flex; justify-content: center; align-items: center; height
 }
 /* Touch devices get a game viewport, including browser chrome and display cutouts. */
 @media (max-width: 600px), (pointer: coarse) {
-    html { height: 100%; overflow: hidden; overscroll-behavior: none; }
+    html { height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none; }
     body { position: fixed; inset: 0; min-width: 0; overflow: hidden; overscroll-behavior: none; touch-action: none; }
     .site-shell {
         height: 100vh;

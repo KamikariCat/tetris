@@ -236,17 +236,86 @@ test('rapid taps and drags neither select text, zoom nor move the mobile interfa
     await expect(page.locator('#status')).toHaveText('Игра идёт');
 });
 
-test('fullscreen can be entered and exited without losing the game', async ({ page }) => {
+test('double taps cancel browser zoom and preserve both rotations and UI activations', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'desktop');
+    await page.addInitScript(() => {
+        Math.random = () => 0;
+        window.requestAnimationFrame = () => 0;
+        window.cancelAnimationFrame = () => {};
+        window.touchEnds = [];
+        window.buttonClicks = [];
+        document.addEventListener('touchend', event => window.touchEnds.push({ prevented: event.defaultPrevented, target: event.target.id }), { passive: true });
+        document.addEventListener('click', event => window.buttonClicks.push(event.target.closest('button')?.id));
+    });
     await page.goto('/');
-    await page.locator('#start-btn').click();
+    await page.locator('#overlay-btn').tap();
+    const canvas = page.locator('#game');
+    await page.locator('[data-action="rotate"]').tap();
+    await page.locator('[data-action="rotate"]').tap();
+    const twoRotations = await readCells(canvas);
+    await page.locator('#restart-btn').tap();
+    const box = await canvas.boundingBox();
+    await page.evaluate(() => { window.touchEnds = []; });
+    // Send native touch input directly, without actionability waits between the two taps.
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    expect(await readCells(canvas)).toEqual(twoRotations);
+    expect(await page.evaluate(() => window.touchEnds)).toEqual([{ prevented: true, target: 'game' }, { prevented: true, target: 'game' }]);
+    await page.locator('#start-btn').tap();
+    await expect(page.locator('#status')).toHaveText('На паузе');
+    const button = await page.locator('#start-btn').boundingBox();
+    await page.evaluate(() => { window.buttonClicks = []; });
+    await page.touchscreen.tap(button.x + button.width / 2, button.y + button.height / 2);
+    await page.touchscreen.tap(button.x + button.width / 2, button.y + button.height / 2);
+    await expect(page.locator('#status')).toHaveText('На паузе');
+    expect(await page.evaluate(() => window.buttonClicks)).toEqual(['start-btn', 'start-btn']);
+    await page.locator('#overlay-btn').tap();
+    await expect(page.locator('#status')).toHaveText('Игра идёт');
+    await page.evaluate(() => { window.touchEnds = []; });
+    // Empty viewport margins need the same protection as the board and controls.
+    await page.touchscreen.tap(3, 3);
+    await page.touchscreen.tap(3, 3);
+    expect((await page.evaluate(() => window.touchEnds)).every(event => event.prevented)).toBe(true);
+    expect(await page.evaluate(() => ({ scale: visualViewport.scale, scroll: [scrollX, scrollY] }))).toEqual({ scale: 1, scroll: [0, 0] });
+    expect(await canvas.boundingBox()).toEqual(box);
+});
+
+test('dragged, cancelled and multi-touch UI presses do not activate a button', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile');
+    const drag = await beginDrag(page);
+    await page.keyboard.press('Space');
+    const score = await page.locator('#score').textContent();
+    const client = await page.context().newCDPSession(page);
+    const box = await page.locator('#start-btn').boundingBox();
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2, id: 1 };
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...point, x: point.x + 40 }] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.locator('#status')).toHaveText('Игра идёт');
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+    const second = { ...point, id: 2, x: point.x + 30 };
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point, second] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [second] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.locator('#status')).toHaveText('Игра идёт');
+    const restart = await page.locator('#restart-btn').boundingBox();
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: restart.x + restart.width / 2, y: restart.y + restart.height / 2 }] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await expect(page.locator('#score')).toHaveText(score);
+});
+
+test('fullscreen can be entered and exited without losing the game', async ({ page }, testInfo) => {
+    const activate = selector => testInfo.project.name === 'desktop' ? page.locator(selector).click() : page.locator(selector).tap();
+    await page.goto('/');
+    await activate('#start-btn');
     if (!await page.evaluate(() => document.fullscreenEnabled)) {
         await expect(page.locator('#fullscreen-btn')).toBeHidden();
         return;
     }
-    await page.locator('#fullscreen-btn').click();
+    await activate('#fullscreen-btn');
     await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
     await expect(page.locator('#fullscreen-btn')).toHaveAttribute('aria-pressed', 'true');
-    await page.locator('#fullscreen-btn').click();
+    await activate('#fullscreen-btn');
     await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
     await expect(page.locator('#status')).toHaveText('Игра идёт');
 });
