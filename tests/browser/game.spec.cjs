@@ -151,6 +151,52 @@ async function beginDrag(page) {
     return { box, point, cellWidth, touch, cells };
 }
 const shifted = (cells, dx) => cells.map(([x, y]) => [x + dx, y]);
+
+test('a wobbly tap rotates and only a longer downward swipe drops the piece', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile');
+    for (const viewport of [{ width: 320, height: 568 }, { width: 851, height: 393 }]) {
+        await page.setViewportSize(viewport);
+        const drag = await beginDrag(page);
+        const client = await page.context().newCDPSession(page);
+        const swipe = async distance => {
+            const point = { x: drag.point.x, y: drag.point.y };
+            await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+            await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...point, y: point.y + distance }] });
+            // Crossing the threshold must not drop before the finger is released.
+            await expect(page.locator('#score')).toHaveText('0');
+            await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        };
+        await page.locator('[data-action="rotate"]').tap();
+        const rotated = await drag.cells();
+        for (const distance of [12, 25, 29]) {
+            await page.locator('#restart-btn').tap();
+            await swipe(distance);
+            expect(await drag.cells()).toEqual(rotated);
+            await expect(page.locator('#score')).toHaveText('0');
+        }
+        await page.locator('#restart-btn').tap();
+        const initial = await drag.cells();
+        for (const distance of [30, 45, 59]) {
+            await swipe(distance);
+            expect(await drag.cells()).toEqual(initial);
+            await expect(page.locator('#score')).toHaveText('0');
+        }
+        // Moving horizontally first keeps this a positioning gesture even if the finger dips.
+        const point = { x: drag.point.x, y: drag.point.y };
+        await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+        await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...point, x: point.x + drag.cellWidth * 1.4 }] });
+        await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: point.x + drag.cellWidth * 1.4, y: point.y + 80 }] });
+        await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        expect(await drag.cells()).toEqual(shifted(initial, 1));
+        await expect(page.locator('#score')).toHaveText('0');
+        for (const distance of [60, 80]) {
+            await page.locator('#restart-btn').tap();
+            await swipe(distance);
+            await expect(page.locator('#score')).not.toHaveText('0');
+        }
+    }
+});
+
 async function tryScrolling(page, testInfo) {
     // Playwright's mobile WebKit does not implement mouse-wheel input.
     if (testInfo.project.name === 'safari-mobile') await page.evaluate(() => scrollTo(0, 700));

@@ -4,6 +4,8 @@ import { Renderer } from './Renderer';
 import { GameStatus } from './types';
 
 type Action = 'left' | 'right' | 'rotate' | 'down' | 'drop';
+const TAP_MOVEMENT_TOLERANCE = 30;
+const DROP_SWIPE_DISTANCE = 60;
 interface DragGesture {
     id: number;
     startX: number;
@@ -339,8 +341,12 @@ export class Game {
             if (this.engine.status !== 'playing' || this.engine.active !== gesture.piece || gesture.dragging) return;
             const dx = event.clientX - gesture.startX;
             const dy = event.clientY - gesture.startY;
-            if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) this.act('rotate');
-            else if (Math.abs(dy) > Math.abs(dx)) this.act(dy > 0 ? 'drop' : 'rotate');
+            if (Math.max(Math.abs(dx), Math.abs(dy)) < TAP_MOVEMENT_TOLERANCE) this.act('rotate');
+            else if (Math.abs(dy) > Math.abs(dx)) {
+                if (dy < 0) this.act('rotate');
+                // Leave space between a slightly wobbly tap and a deliberate hard drop.
+                else if (dy >= DROP_SWIPE_DISTANCE) this.act('drop');
+            }
         });
         const cancelGesture = (event: PointerEvent): void => {
             if (this.gesture?.id === event.pointerId) this.clearGesture();
